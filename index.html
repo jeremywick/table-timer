@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Table Timer: a chess clock for the whole table</title>
+<meta name="description" content="A board game clock for 2 to 8 players. Everyone gets their own time, and a tap passes the turn.">
+<meta property="og:title" content="Table Timer: a chess clock for the whole table">
+<meta property="og:description" content="A board game clock for 2 to 8 players. Everyone gets their own time, and a tap passes the turn.">
+<meta property="og:image" content="https://jeremywick.github.io/table-timer/icon.png">
+<link rel="icon" href="/table-timer/icon.png">
+<link rel="apple-touch-icon" href="/table-timer/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=Bricolage+Grotesque:opsz,wght@12..96,800&display=swap">
+<style>
+:root {
+  --bg: #E8EDE9; --surface: #FAFCFA; --ink: #14201A; --muted: #56665E; --line: #D2DBD5;
+  --red: #D9443A; --blue: #2D6BD2; --yellow: #F3C634; --green: #23854B;
+  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --ui: "Archivo", "Helvetica Neue", Arial, system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0C1411; --surface: #15201B; --ink: #E5ECE8; --muted: #95A49C; --line: #26342E; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 500 17px/1.55 var(--ui); -webkit-font-smoothing: antialiased; }
+a { color: inherit; }
+.wrap { max-width: 720px; margin: 0 auto; padding: 32px max(20px, env(safe-area-inset-left)) 48px max(20px, env(safe-area-inset-right)); }
+a.top { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 40px; text-decoration: none; }
+a.top img { width: 40px; height: 40px; border-radius: 10px; }
+a.top span { font: 800 22px/1 var(--display); letter-spacing: -0.02em; }
+h1 { font: 800 clamp(44px, 11vw, 72px)/0.95 var(--display); letter-spacing: -0.035em; margin: 0 0 18px; text-wrap: balance; }
+h2 { font: 800 28px/1.1 var(--display); letter-spacing: -0.02em; margin: 40px 0 10px; }
+h3 { font: 700 18px/1.3 var(--ui); margin: 26px 0 4px; }
+p, li { max-width: 62ch; }
+.lead { font-size: 20px; color: var(--muted); margin: 0 0 28px; }
+.muted { color: var(--muted); }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 40px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; min-height: 52px; padding: 0 22px; border-radius: 16px; font: 700 17px/1 var(--ui); text-decoration: none; }
+.btn.primary { background: var(--ink); color: var(--bg); }
+.btn.secondary { background: var(--surface); border: 1px solid var(--line); }
+.btn.soon { background: var(--surface); border: 1px dashed var(--line); color: var(--muted); }
+.pips { display: flex; gap: 8px; margin-bottom: 22px; }
+.pips i { width: 18px; height: 18px; border-radius: 50%; box-shadow: inset 0 -3px 0 rgba(0,0,0,.2); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 8px 0 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 18px 20px; }
+.card h3 { margin: 0 0 4px; }
+.card p { margin: 0; color: var(--muted); font-size: 16px; }
+.faq h3 { margin-top: 22px; }
+.faq p { margin: 4px 0 0; color: var(--muted); }
+footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 15px; color: var(--muted); }
+footer a { color: var(--muted); }
+footer .by { color: var(--ink); font-weight: 700; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="top" href="/table-timer/"><img src="/table-timer/icon.png" alt=""><span>Table Timer</span></a>
+
+<div class="pips"><i style="background:var(--red)"></i><i style="background:var(--blue)"></i><i style="background:var(--yellow)"></i><i style="background:var(--green)"></i></div>
+<h1>A chess clock for the whole table.</h1>
+<p class="lead">Put one phone in the middle of the table. Everyone gets their own time, and a tap passes the turn to the next player.</p>
+<div class="actions">
+  <span class="btn soon">Coming soon to the App Store</span>
+  <a class="btn secondary" href="/table-timer/play/">Try it in your browser</a>
+</div>
+<div class="grid">
+  <div class="card"><h3>2 to 8 players</h3><p>Name everyone, give them a color, and drag them into seating order.</p></div>
+  <div class="card"><h3>Tap to pass</h3><p>The screen turns the current player's color and drains as their time runs down.</p></div>
+  <div class="card"><h3>Who goes first?</h3><p>Spin the list to pick a starting player without changing the seats.</p></div>
+  <div class="card"><h3>Out of time?</h3><p>The clocks stop. Remove the player, add time, or let them play on in overtime.</p></div>
+  <div class="card"><h3>On your Lock Screen</h3><p>See whose turn it is and their countdown on the Lock Screen and in the Dynamic Island.</p></div>
+  <div class="card"><h3>Nothing to sign up for</h3><p>No accounts, no ads, no tracking. Your names and settings stay on your phone.</p></div>
+</div>
+<footer>
+  <a class="by" href="https://www.mainsplash.com/?utm_source=table-timer&utm_medium=site&utm_campaign=footer">Made by Mainsplash</a>
+  <a href="/table-timer/privacy/">Privacy</a>
+  <a href="/table-timer/support/">Support</a>
+  <a href="/table-timer/play/">Play in your browser</a>
+</footer>
+</div>
+</body>
+</html>

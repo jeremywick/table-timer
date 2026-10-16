@@ -1,0 +1,1399 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Table Timer">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%228%22%20fill%3D%22%2314201A%22%2F%3E%0A%3Ccircle%20cx%3D%2211%22%20cy%3D%2211%22%20r%3D%225%22%20fill%3D%22%23D9443A%22%2F%3E%3Ccircle%20cx%3D%2221%22%20cy%3D%2211%22%20r%3D%225%22%20fill%3D%22%232D6BD2%22%2F%3E%0A%3Ccircle%20cx%3D%2211%22%20cy%3D%2221%22%20r%3D%225%22%20fill%3D%22%23F3C634%22%2F%3E%3Ccircle%20cx%3D%2221%22%20cy%3D%2221%22%20r%3D%225%22%20fill%3D%22%2323854B%22%2F%3E%3C%2Fsvg%3E">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head><body><title>Table Timer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..900&family=Bricolage+Grotesque:opsz,wght@12..96,600..800&display=swap">
+<style>
+/* Layout: one column. Setup is a short scrolling form; the game is a full-height tile in the
+   active player's color that drains as their time runs down, above a queue of who plays next. */
+:root {
+  --bg: #E8EDE9;
+  --surface: #FAFCFA;
+  --ink: #14201A;
+  --muted: #56665E;
+  --line: #D2DBD5;
+  --btn: #14201A;
+  --btn-ink: #F3F7F4;
+  --scrim: rgba(10, 18, 14, .5);
+  --danger: #B3261E;
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-ui: "Archivo", "Helvetica Neue", Arial, system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0C1411; --surface: #15201B; --ink: #E5ECE8; --muted: #95A49C; --line: #26342E;
+    --btn: #E5ECE8; --btn-ink: #0C1411; --scrim: rgba(0, 0, 0, .62); --danger: #FF8A80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0C1411; --surface: #15201B; --ink: #E5ECE8; --muted: #95A49C; --line: #26342E;
+  --btn: #E5ECE8; --btn-ink: #0C1411; --scrim: rgba(0, 0, 0, .62); --danger: #FF8A80;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 16px/1.4 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overflow: hidden;
+}
+button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button:disabled { cursor: default; opacity: .4; }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.screen { height: 100%; }
+.gutter {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* Setup */
+.setup, .over { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.setup-inner, .over-inner {
+  max-width: 520px; min-height: 100%; margin: 0 auto;
+  padding-block: 28px 0;
+  display: flex; flex-direction: column; gap: 28px;
+}
+.brand { display: flex; flex-direction: column; gap: 10px; }
+.pips { display: flex; gap: 6px; height: 14px; }
+.pips i { width: 14px; height: 14px; border-radius: 50%; background: var(--p); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .2); }
+.brand h1 {
+  margin: 0;
+  font: 800 clamp(42px, 13vw, 60px)/.92 var(--font-display);
+  letter-spacing: -.035em; text-wrap: balance;
+}
+.brand p { margin: 0; max-width: 36ch; color: var(--muted); font-size: 16px; }
+
+.field { display: flex; flex-direction: column; gap: 12px; }
+.field-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; }
+.field-head h2 { margin: 0; font: 700 18px/1.2 var(--font-ui); }
+.help { margin: 0; color: var(--muted); font-size: 14px; }
+
+.stepper {
+  display: flex; align-items: center; gap: 2px; padding: 3px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
+}
+.stepper button {
+  width: 42px; height: 42px; border: 0; border-radius: 50%; background: transparent;
+  font: 500 24px/1 var(--font-ui);
+}
+.stepper button:not(:disabled):active { background: var(--line); }
+.stepper output {
+  min-width: 3ch; text-align: center;
+  font: 700 18px/1 var(--font-ui); font-variant-numeric: tabular-nums;
+}
+.stepper output.wide { min-width: 7ch; }
+
+.roster {
+  position: relative; list-style: none; margin: 0; padding: 0; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 20px;
+}
+.seat {
+  position: relative;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  padding-inline: 12px 2px; background: var(--surface);
+}
+.seat + .seat { box-shadow: inset 0 1px 0 var(--line); } /* a line rather than a border keeps every row the same height for dragging */
+.seat:focus-within { background: color-mix(in srgb, var(--p) 9%, var(--surface)); }
+.seat-chip {
+  width: 36px; height: 36px; border: 0; border-radius: 50%;
+  background: var(--p); color: var(--p-ink);
+  font: 800 15px/1 var(--font-ui);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .2);
+}
+.seat input {
+  width: 100%; height: 56px; border: 0; outline: none; background: transparent; color: var(--ink);
+  font: 600 18px/1 var(--font-ui);
+}
+.seat input::placeholder { color: var(--muted); opacity: .75; }
+.grip {
+  width: 44px; height: 52px; border: 0; border-radius: 12px; background: none; color: var(--muted);
+  display: grid; place-items: center;
+  touch-action: none; cursor: grab;
+}
+.grip svg { width: 20px; height: 20px; }
+.roster.sorting .seat { transition: transform .18s ease; }
+.roster.sorting .seat.dragging {
+  z-index: 2; transition: none; cursor: grabbing;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .2), inset 0 0 0 2px var(--p);
+}
+.roster.sorting .seat.dragging.dropping { transition: transform .15s ease-out, box-shadow .15s; }
+.seat.first-pick { animation: picked 2s ease-out; }
+.seat.first-pick .seat-chip { animation: pop .55s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes picked { 0%, 35% { background: color-mix(in srgb, var(--p) 28%, var(--surface)); } }
+@keyframes pop { 40% { transform: scale(1.3); } }
+.roster-foot { display: flex; flex-direction: column; gap: 10px; }
+.roster-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.link-btn {
+  min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); font-weight: 650; font-size: 15px;
+}
+.link-btn svg { flex: none; width: 18px; height: 18px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+.chips { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: 6px; }
+.chip {
+  min-width: 0; height: 42px; padding: 0 4px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+  font: 650 15px/1 var(--font-ui); font-variant-numeric: tabular-nums;
+}
+.chip[aria-pressed="true"] { background: var(--btn); border-color: var(--btn); color: var(--btn-ink); }
+
+.switch {
+  position: relative; flex: none; width: 54px; height: 32px;
+  border: 0; border-radius: 999px; background: var(--line);
+  transition: background-color .2s;
+}
+.switch::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+  transition: transform .2s;
+}
+.switch[aria-checked="true"] { background: var(--btn); }
+.switch[aria-checked="true"]::after { transform: translateX(22px); }
+
+.start-bar {
+  position: sticky; bottom: 0; margin-top: auto;
+  padding-block: 20px;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 0%, transparent), var(--bg) 28%);
+}
+.primary {
+  width: 100%; min-height: 62px; padding: 10px 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  border: 0; border-radius: 20px; background: var(--btn); color: var(--btn-ink);
+  font: 750 18px/1.1 var(--font-ui);
+}
+.primary small { font-weight: 500; font-size: 13px; opacity: .72; font-variant-numeric: tabular-nums; }
+.primary:not(:disabled):active, .secondary:not(:disabled):active, .ctl:not(:disabled):active { transform: scale(.98); }
+.secondary {
+  width: 100%; min-height: 54px; padding: 8px 14px;
+  border: 1px solid var(--line); border-radius: 18px; background: var(--surface);
+  font: 700 16px/1.1 var(--font-ui);
+}
+.quiet {
+  width: 100%; min-height: 48px; border: 0; background: none;
+  color: var(--muted); font: 650 15px/1.2 var(--font-ui);
+}
+.quiet.confirm { color: var(--danger); }
+
+/* Game */
+.game {
+  display: flex; flex-direction: column; gap: 10px;
+  padding-block: 10px 12px;
+}
+.panel {
+  --p: #D9443A; --p-dim: #A9322B; --p-ink: #FFFFFF;
+  position: relative; isolation: isolate; overflow: hidden;
+  flex: 1 1 0; min-height: 0;
+  border-radius: 30px;
+  background: var(--p-dim); color: var(--p-ink);
+  container-type: size;
+  cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  transition: background-color .3s, transform .08s;
+}
+.panel:active { transform: scale(.993); }
+.fill {
+  position: absolute; inset: 0; z-index: -1;
+  background: var(--p);
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, .22);
+  will-change: transform;
+  transition: background-color .3s;
+}
+.fill.full { box-shadow: none; }
+.panel.swap .fill { transition: transform .55s cubic-bezier(.2, .7, .2, 1), background-color .3s; }
+.panel-body { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; padding: 18px 20px 20px; }
+.panel-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; font: 650 15px/1 var(--font-ui); }
+.panel-top #round { opacity: .85; font-variant-numeric: tabular-nums; }
+.tag, .hint {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .16);
+  background: color-mix(in srgb, var(--p-ink) 15%, transparent);
+}
+.tag { padding: 7px 11px; font-weight: 750; font-size: 13px; letter-spacing: .03em; }
+.panel-main {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-width: 0; text-align: center;
+}
+.panel.swap .panel-main { animation: swap-in .4s cubic-bezier(.2, .8, .2, 1); }
+@keyframes swap-in { from { opacity: 0; transform: translateX(18px); } }
+.who {
+  max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font: 750 40px/1.08 var(--font-display);
+  font-size: clamp(28px, 10cqw, 56px);
+  letter-spacing: -.02em;
+  padding-bottom: .04em;
+}
+.clock {
+  font: 800 96px/.95 var(--font-ui);
+  font-size: min(29cqw, 34cqh);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.035em;
+  white-space: nowrap;
+}
+.clock.long { font-size: min(20cqw, 28cqh); }
+.panel.low .clock { animation: low 1s steps(1, end) infinite; }
+@keyframes low { 50% { opacity: .5; } }
+.turn { font: 650 16px/1.2 var(--font-ui); font-variant-numeric: tabular-nums; opacity: .82; margin-top: 6px; }
+.hint { justify-self: center; padding: 11px 18px; font: 750 16px/1.1 var(--font-ui); text-align: center; }
+
+.queue {
+  flex: 0 1 auto; max-height: 40%; overflow-y: auto;
+  list-style: none; margin: 0; padding: 0;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 22px;
+}
+.q {
+  position: relative;
+  display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  padding: 12px 16px 14px;
+}
+.q + .q { border-top: 1px solid var(--line); }
+.queue.dense .q { padding-block: 8px 11px; }
+.queue.dense .q-bar { bottom: 4px; }
+.q-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--p); }
+.q-name { min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+.q-name b { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 650; font-size: 16px; }
+.q-name small { flex: none; color: var(--muted); font-weight: 650; font-size: 13px; }
+.q-time { font: 750 17px/1 var(--font-ui); font-variant-numeric: tabular-nums; }
+.q-bar { position: absolute; left: 40px; right: 16px; bottom: 6px; height: 3px; border-radius: 2px; overflow: hidden; background: var(--line); }
+.q-bar i { display: block; height: 100%; background: var(--p); transform-origin: left; }
+.q.out { opacity: .5; }
+.q.out .q-bar { display: none; }
+
+.controls { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ctl {
+  min-width: 0; min-height: 56px; padding: 0 14px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  border: 1px solid var(--line); border-radius: 18px; background: var(--surface);
+  font: 700 16px/1 var(--font-ui);
+}
+.ctl span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ctl svg { flex: none; width: 20px; height: 20px; }
+
+@media (orientation: landscape) and (max-height: 560px) {
+  .game { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .panel { grid-row: 1 / 3; }
+  .queue { max-height: none; align-self: start; }
+  .controls { grid-column: 2; }
+}
+
+/* Sheets */
+.sheet-wrap {
+  position: fixed; inset: 0; z-index: 10;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: var(--scrim);
+  animation: fade .2s ease-out;
+}
+.sheet {
+  width: 100%; max-width: 560px; max-height: 92%; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 14px;
+  padding-top: 22px;
+  padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
+  background: var(--surface); border-radius: 28px 28px 0 0;
+  animation: rise .28s cubic-bezier(.2, .8, .2, 1);
+}
+@media (min-width: 620px) {
+  .sheet-wrap { align-items: center; }
+  .sheet { border-radius: 28px; padding-bottom: 20px; }
+}
+@keyframes fade { from { opacity: 0; } }
+@keyframes rise { from { transform: translateY(40px); opacity: .4; } }
+.sheet-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.sheet h2 { margin: 0; font: 800 30px/1.05 var(--font-display); letter-spacing: -.02em; text-wrap: balance; }
+.sheet-head span { color: var(--muted); font-weight: 650; font-variant-numeric: tabular-nums; }
+.sheet p { margin: 0; color: var(--muted); }
+.live { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 18px; }
+.live li { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 14px; min-height: 60px; }
+.live li + li { border-top: 1px solid var(--line); }
+.live .q-dot { flex: none; }
+.live .nm { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.live .nm b { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 650; }
+.live .nm span { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.live li.out { opacity: .55; }
+.mini {
+  flex: none; height: 40px; padding: 0 12px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--bg);
+  font: 650 14px/1 var(--font-ui); white-space: nowrap;
+}
+.mini.danger { color: var(--danger); }
+.mini.confirm { background: var(--danger); border-color: var(--danger); color: var(--surface); }
+.sheet-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; font-weight: 650; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.alarm {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 18px;
+  border-radius: 20px; background: var(--p); color: var(--p-ink); text-align: center;
+}
+.alarm b { font: 750 22px/1.1 var(--font-display); max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.alarm span { font: 800 64px/1 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+
+/* Game over */
+.over-inner { gap: 22px; padding-bottom: 24px; }
+.over h1 { margin: 0; font: 800 clamp(40px, 12vw, 56px)/.95 var(--font-display); letter-spacing: -.035em; }
+.over-lead { margin: -6px 0 0; font-size: 18px; font-weight: 600; text-wrap: balance; }
+.over-meta { margin: -12px 0 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+.stats-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 20px; }
+.stats { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.stats th, .stats td { padding: 12px 10px; text-align: right; white-space: nowrap; }
+.stats th:first-child, .stats td:first-child { text-align: left; padding-left: 16px; }
+.stats th:last-child, .stats td:last-child { padding-right: 16px; }
+.stats thead th { font-size: 13px; font-weight: 650; color: var(--muted); border-bottom: 1px solid var(--line); }
+.stats tbody tr + tr td { border-top: 1px solid var(--line); }
+.stats td { font-weight: 650; }
+.stats .who-cell { display: flex; align-items: center; gap: 10px; max-width: 46vw; }
+.stats .who-cell b { overflow: hidden; text-overflow: ellipsis; font-weight: 650; }
+.stats small { color: var(--muted); font-weight: 650; font-size: 12px; }
+.over-actions { display: flex; flex-direction: column; gap: 10px; }
+
+.toast {
+  position: fixed; left: 50%; z-index: 20;
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  width: max-content; max-width: calc(100% - 32px);
+  transform: translateX(-50%);
+  padding: 12px 16px; border-radius: 16px;
+  background: var(--btn); color: var(--btn-ink);
+  font-size: 14px; font-weight: 550; line-height: 1.35; text-align: center;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+
+<main id="setup" class="screen setup gutter">
+  <div class="setup-inner">
+    <header class="brand">
+      <div class="pips" id="pips" aria-hidden="true"></div>
+      <h1>Table Timer</h1>
+      <p>A chess clock for the whole table. Everyone gets their own time, and you tap the screen to pass the turn.</p>
+    </header>
+
+    <section class="field" aria-labelledby="players-label">
+      <div class="field-head">
+        <h2 id="players-label">Players</h2>
+        <div class="stepper">
+          <button id="players-minus" type="button" aria-label="One fewer player">−</button>
+          <output id="players-count" aria-live="polite">4</output>
+          <button id="players-plus" type="button" aria-label="One more player">+</button>
+        </div>
+      </div>
+      <ol class="roster" id="roster" aria-describedby="roster-help"></ol>
+      <div class="roster-foot">
+        <p class="help" id="roster-help">Turns go in this order. Drag a handle to move someone; tap a number to change the color.</p>
+        <div class="roster-actions">
+          <button id="roll" class="link-btn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><circle cx="8.5" cy="8.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1.4" fill="currentColor" stroke="none"/></svg>
+            Who goes first?
+          </button>
+          <button id="shuffle" class="link-btn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/></svg>
+            Shuffle
+          </button>
+        </div>
+        <p id="roll-result" class="sr-only" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="field" aria-labelledby="time-label">
+      <div class="field-head">
+        <h2 id="time-label">Time per player</h2>
+        <div class="stepper">
+          <button id="time-minus" type="button" aria-label="Less time">−</button>
+          <output id="time-value" class="wide" aria-live="polite">15 min</output>
+          <button id="time-plus" type="button" aria-label="More time">+</button>
+        </div>
+      </div>
+      <div class="chips" id="time-chips" role="group" aria-label="Common times" style="--n: 7"></div>
+    </section>
+
+    <section class="field" aria-labelledby="bonus-label">
+      <div class="field-head">
+        <h2 id="bonus-label">Bonus per turn</h2>
+        <div class="stepper">
+          <button id="bonus-minus" type="button" aria-label="Less bonus time">−</button>
+          <output id="bonus-value" class="wide" aria-live="polite">None</output>
+          <button id="bonus-plus" type="button" aria-label="More bonus time">+</button>
+        </div>
+      </div>
+      <div class="chips" id="bonus-chips" role="group" aria-label="Common bonus times, in seconds" style="--n: 7"></div>
+      <p class="help">Seconds added to a player's clock each time they finish a turn.</p>
+    </section>
+
+    <section class="field">
+      <div class="field-head">
+        <h2 id="sound-label">Sounds</h2>
+        <button id="sound-setup" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="sound-label"></button>
+      </div>
+    </section>
+
+    <div class="start-bar">
+      <button id="start" class="primary" type="button">Start game<small id="start-sub">4 players, 15 min each</small></button>
+    </div>
+  </div>
+</main>
+
+<section id="game" class="screen game gutter" hidden>
+  <div id="panel" class="panel" role="button" tabindex="0" aria-label="End turn">
+    <div id="fill" class="fill"></div>
+    <div class="panel-body">
+      <div class="panel-top"><span id="round">Round 1</span><span id="state-tag" class="tag" hidden></span></div>
+      <div class="panel-main">
+        <div id="who" class="who">Player 1</div>
+        <div id="clock" class="clock" aria-live="off">15:00</div>
+        <div id="turn" class="turn">Goes first</div>
+      </div>
+      <div id="hint" class="hint">Tap to start</div>
+    </div>
+  </div>
+  <ol id="queue" class="queue" aria-label="Up next"></ol>
+  <div class="controls">
+    <button id="undo" class="ctl" type="button" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+      <span id="undo-label">Undo</span>
+    </button>
+    <button id="pause" class="ctl" type="button">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4.5" width="4" height="15" rx="1.2"/><rect x="14" y="4.5" width="4" height="15" rx="1.2"/></svg>
+      <span>Pause</span>
+    </button>
+  </div>
+</section>
+
+<section id="over" class="screen over gutter" hidden>
+  <div class="over-inner">
+    <header class="brand">
+      <div class="pips" id="over-pips" aria-hidden="true"></div>
+      <h1>Game over</h1>
+    </header>
+    <p id="over-lead" class="over-lead" hidden></p>
+    <p id="over-meta" class="over-meta"></p>
+    <div class="stats-wrap">
+      <table class="stats">
+        <thead><tr><th scope="col">Player</th><th scope="col">Clock used</th><th scope="col">Turns</th><th scope="col">Per turn</th></tr></thead>
+        <tbody id="stats"></tbody>
+      </table>
+    </div>
+    <div class="over-actions">
+      <button id="again" class="primary" type="button">Play again<small id="again-sub"></small></button>
+      <button id="new-setup" class="secondary" type="button">Change players or time</button>
+    </div>
+  </div>
+</section>
+
+<div id="pause-sheet" class="sheet-wrap" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pause-title">
+    <div class="sheet-head"><h2 id="pause-title">Paused</h2><span id="pause-round">Round 1</span></div>
+    <ul id="live" class="live" aria-label="Players"></ul>
+    <div class="sheet-row">
+      <span id="sound-label-2">Sounds</span>
+      <button id="sound-game" class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="sound-label-2"></button>
+    </div>
+    <button id="resume" class="primary" type="button">Resume<small id="resume-sub"></small></button>
+    <button id="end" class="quiet" type="button">End game</button>
+  </div>
+</div>
+
+<div id="timeout-sheet" class="sheet-wrap" hidden>
+  <div class="sheet" role="alertdialog" aria-modal="true" aria-labelledby="to-title" aria-describedby="to-text">
+    <div id="to-alarm" class="alarm"><b id="to-name">Player</b><span>0:00</span></div>
+    <h2 id="to-title">Out of time</h2>
+    <p id="to-text">The clocks are stopped until you choose what happens next.</p>
+    <button id="to-remove" class="primary" type="button">Remove from the game</button>
+    <div class="pair">
+      <button id="to-add1" class="secondary" type="button">+1 min</button>
+      <button id="to-add5" class="secondary" type="button">+5 min</button>
+    </div>
+    <button id="to-overtime" class="quiet" type="button">Keep playing in overtime</button>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script>
+(() => {
+  'use strict';
+
+  // Meeple colors. `dim` is the drained part of the tile; `ink` reads on both.
+  const COLORS = [
+    { id: 'red',    name: 'Red',    bg: '#D9443A', dim: '#A42F28', ink: '#FFFFFF' },
+    { id: 'blue',   name: 'Blue',   bg: '#2D6BD2', dim: '#1F4F9E', ink: '#FFFFFF' },
+    { id: 'yellow', name: 'Yellow', bg: '#F3C634', dim: '#D3A40E', ink: '#2B2105' },
+    { id: 'green',  name: 'Green',  bg: '#23854B', dim: '#186236', ink: '#FFFFFF' },
+    { id: 'purple', name: 'Purple', bg: '#7A4CCB', dim: '#5B369D', ink: '#FFFFFF' },
+    { id: 'orange', name: 'Orange', bg: '#EF7B2B', dim: '#CC5F17', ink: '#2B1404' },
+    { id: 'teal',   name: 'Teal',   bg: '#0C7F81', dim: '#075C5E', ink: '#FFFFFF' },
+    { id: 'pink',   name: 'Pink',   bg: '#CF3F86', dim: '#A22D67', ink: '#FFFFFF' },
+  ];
+  const COLOR = Object.fromEntries(COLORS.map((c) => [c.id, c]));
+  const TIME_PICKS = [5, 10, 15, 20, 30, 45, 60];
+  const BONUS_PICKS = [0, 5, 10, 15, 20, 30, 60]; // seconds
+  const GRIP = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>';
+  const MIN = 60000;
+  const TAP_GAP = 600; // ms; a second tap sooner than this is ignored, so a double tap can't skip a player
+  const LOW = 10000;   // the last ten seconds blink and tick
+  const KEY_SETUP = 'table-timer:setup';
+  const KEY_GAME = 'table-timer:game';
+
+  const $ = (id) => document.getElementById(id);
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  const pad = (n) => String(n).padStart(2, '0');
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const el = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  };
+  const tint = (e, c) => { e.style.setProperty('--p', c.bg); e.style.setProperty('--p-ink', c.ink); return e; };
+  const store = {
+    get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+    set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  };
+
+  let offset = 0; // test handle only: window.tableTimer.advance() moves the clock forward
+  const now = () => Date.now() + offset;
+
+  let setup;
+  let game = null;
+  let shown = '';
+  let lastTap = -Infinity;
+  let lastBeep = null;
+  let swapTimer = 0;
+  let endArmed = 0;
+  let sorting = false; // a drag or a roll is moving the roster
+
+  // ---------- Time formats ----------
+
+  /** A countdown: rounds up, so 0:00 only shows once the time is really gone. */
+  function fmt(ms) {
+    const neg = ms < 0;
+    const s = neg ? Math.floor(-ms / 1000) : Math.ceil(ms / 1000);
+    return (neg && s > 0 ? '−' : '') + hms(s);
+  }
+  /** Time spent: rounds down. */
+  const fmtUp = (ms) => hms(Math.floor(Math.max(0, ms) / 1000));
+  function hms(s) {
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    return h ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
+  }
+  function fmtMinutes(m) {
+    if (m < 60) return `${m} min`;
+    const h = Math.floor(m / 60), r = m % 60;
+    return r ? `${h} h ${r} min` : `${h} h`;
+  }
+  function fmtSeconds(s) {
+    if (!s) return 'None';
+    if (s < 60) return `${s} s`;
+    const m = Math.floor(s / 60), r = s % 60;
+    return r ? `${m} min ${r} s` : `${m} min`;
+  }
+  function fmtSpan(ms) {
+    const s = Math.round(ms / 1000);
+    if (s < 60) return `${s} s`;
+    const m = Math.round(s / 60);
+    return fmtMinutes(m);
+  }
+
+  // ---------- Setup ----------
+
+  function defaultSetup() {
+    return { players: COLORS.slice(0, 4).map((c) => ({ name: '', color: c.id })), minutes: 15, bonus: 0, sound: true };
+  }
+  function cleanSetup(s) {
+    if (!s || !Array.isArray(s.players) || s.players.length < 2 || s.players.length > 8) return null;
+    const used = new Set();
+    const players = s.players.map((p) => {
+      let color = COLOR[p && p.color] && !used.has(p.color) ? p.color : COLORS.find((c) => !used.has(c.id)).id;
+      used.add(color);
+      return { name: typeof p?.name === 'string' ? p.name.slice(0, 16) : '', color };
+    });
+    const minutes = Number.isFinite(s.minutes) ? clamp(Math.round(s.minutes), 1, 240) : 15;
+    const bonus = Number.isFinite(s.bonus) ? clamp(Math.round(s.bonus), 0, 300) : 0;
+    return { players, minutes, bonus, sound: s.sound !== false };
+  }
+  const saveSetup = () => store.set(KEY_SETUP, setup);
+  const firstFreeColor = () => COLORS.find((c) => !setup.players.some((p) => p.color === c.id)).id;
+
+  function renderSetup() {
+    const n = setup.players.length;
+    $('players-count').textContent = n;
+    $('players-minus').disabled = sorting || n <= 2;
+    $('players-plus').disabled = sorting || n >= 8;
+    for (const id of ['roll', 'shuffle', 'start']) $(id).disabled = sorting;
+    $('roster').replaceChildren(...setup.players.map(seatRow));
+    renderSetupValues();
+  }
+
+  function seatRow(p, i) {
+    const n = setup.players.length;
+    const c = COLOR[p.color];
+    const li = tint(el('li', 'seat'), c);
+    const badge = el('button', 'seat-chip', String(i + 1));
+    badge.type = 'button';
+    badge.id = `chip-${i}`;
+    badge.setAttribute('aria-label', `Player ${i + 1} color: ${c.name}. Change color`);
+    badge.addEventListener('click', () => { cycleColor(i); renderSetup(); $(`chip-${i}`).focus(); });
+    const input = el('input');
+    Object.assign(input, {
+      id: `name-${i}`, type: 'text', value: p.name, placeholder: `Player ${i + 1}`,
+      maxLength: 16, autocomplete: 'off', spellcheck: false, enterKeyHint: i < n - 1 ? 'next' : 'done',
+    });
+    input.setAttribute('autocapitalize', 'words');
+    input.setAttribute('aria-label', `Player ${i + 1} name`);
+    input.addEventListener('input', () => { setup.players[i].name = input.value; saveSetup(); });
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const next = $(`name-${i + 1}`);
+      next ? next.focus() : input.blur();
+    });
+    li.append(badge, input, grip(i));
+    return li;
+  }
+
+  /** Next color nobody has; with all eight taken, swap with whoever has the next one. */
+  function cycleColor(i) {
+    const at = COLORS.findIndex((c) => c.id === setup.players[i].color);
+    for (let k = 1; k < COLORS.length; k++) {
+      const c = COLORS[(at + k) % COLORS.length];
+      if (!setup.players.some((p) => p.color === c.id)) { setup.players[i].color = c.id; saveSetup(); return; }
+    }
+    const next = COLORS[(at + 1) % COLORS.length].id;
+    const j = setup.players.findIndex((p) => p.color === next);
+    setup.players[j].color = setup.players[i].color;
+    setup.players[i].color = next;
+    saveSetup();
+  }
+
+  function renderSetupValues() {
+    const n = setup.players.length;
+    $('time-value').textContent = fmtMinutes(setup.minutes);
+    $('time-minus').disabled = setup.minutes <= 1;
+    $('time-plus').disabled = setup.minutes >= 240;
+    $('time-chips').replaceChildren(...TIME_PICKS.map((m) => chip(`${m}`, setup.minutes === m, `${m} minutes`, () => { setup.minutes = m; changed(); })));
+    $('bonus-value').textContent = fmtSeconds(setup.bonus);
+    $('bonus-minus').disabled = setup.bonus <= 0;
+    $('bonus-plus').disabled = setup.bonus >= 300;
+    $('bonus-chips').replaceChildren(...BONUS_PICKS.map((b) => chip(`${b}`, setup.bonus === b, b ? `${b} seconds` : 'No bonus', () => { setup.bonus = b; changed(); })));
+    syncSound();
+    $('start-sub').textContent = `${n} players, ${fmtMinutes(setup.minutes)} each` + (setup.bonus ? `, +${fmtSeconds(setup.bonus)} a turn` : '');
+    $('pips').replaceChildren(...setup.players.map((p) => tint(el('i'), COLOR[p.color])));
+  }
+  function chip(label, on, aria, onClick) {
+    const b = el('button', 'chip', label);
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(on));
+    b.setAttribute('aria-label', aria);
+    b.addEventListener('click', onClick);
+    return b;
+  }
+  function changed() { saveSetup(); renderSetupValues(); }
+  function syncSound() {
+    for (const id of ['sound-setup', 'sound-game']) $(id).setAttribute('aria-checked', String(setup.sound));
+  }
+
+  /** One stepper press: steps of 1 below 10, 5 below 60, then 15, landing on that grid (17 → 20, not 22). */
+  function step(v, dir, lo, hi) {
+    const size = dir > 0 ? (v < 10 ? 1 : v < 60 ? 5 : 15) : (v <= 10 ? 1 : v <= 60 ? 5 : 15);
+    let next = v + dir * size;
+    if (size > 1) next = dir > 0 ? Math.floor(next / size) * size : Math.ceil(next / size) * size;
+    return clamp(next, lo, hi);
+  }
+
+  // ---------- Turn order: drag, roll, shuffle ----------
+
+  function grip(i) {
+    const b = el('button', 'grip');
+    b.type = 'button';
+    b.id = `grip-${i}`;
+    b.innerHTML = GRIP;
+    b.setAttribute('aria-label', `Move player ${i + 1}. Use the up and down arrow keys`);
+    b.addEventListener('pointerdown', (e) => startDrag(e, i));
+    b.addEventListener('keydown', (e) => {
+      const to = i + (e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0);
+      if (to === i || sorting) return;
+      e.preventDefault();
+      if (to < 0 || to >= setup.players.length) return;
+      move(i, to);
+      $(`grip-${to}`).focus();
+    });
+    return b;
+  }
+  function move(from, to) {
+    const [p] = setup.players.splice(from, 1);
+    setup.players.splice(to, 0, p);
+    saveSetup();
+    renderSetup();
+  }
+
+  function startDrag(e, from) {
+    if (sorting || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    e.preventDefault();
+    const handle = e.currentTarget;
+    const roster = $('roster'), scroller = $('setup');
+    const rows = [...roster.children], row = rows[from], h = row.offsetHeight;
+    const startY = e.clientY, startScroll = scroller.scrollTop;
+    let y = startY, to = from, raf = 0;
+    sorting = true;
+    handle.setPointerCapture(e.pointerId);
+    roster.classList.add('sorting');
+    row.classList.add('dragging');
+    vibrate(10);
+
+    // where each row would sit if the dragged one were dropped at `to`
+    const slotOf = (j) => (j === from ? to : from < j && j <= to ? j - 1 : to <= j && j < from ? j + 1 : j);
+    const layout = () => {
+      const dy = clamp(y - startY + scroller.scrollTop - startScroll, -from * h, (rows.length - 1 - from) * h);
+      to = clamp(Math.round(from + dy / h), 0, rows.length - 1);
+      rows.forEach((r, j) => {
+        const shift = j === from ? dy : (slotOf(j) - j) * h;
+        r.style.transform = shift ? `translateY(${shift}px)` : '';
+        r.querySelector('.seat-chip').textContent = String(slotOf(j) + 1);
+      });
+    };
+    // near the top of the screen or the Start button, scroll so a long list can be dragged end to end
+    const edge = () => {
+      const top = scroller.getBoundingClientRect().top + 60;
+      const bottom = document.querySelector('.start-bar').getBoundingClientRect().top - 20;
+      const v = y < top ? -8 : y > bottom ? 8 : 0;
+      if (v) { scroller.scrollTop += v; layout(); }
+      raf = requestAnimationFrame(edge);
+    };
+    const onMove = (ev) => { y = ev.clientY; layout(); };
+    const onUp = () => {
+      cancelAnimationFrame(raf);
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
+      row.classList.add('dropping');
+      row.style.transform = `translateY(${(to - from) * h}px)`;
+      setTimeout(() => {
+        sorting = false;
+        roster.classList.remove('sorting');
+        if (to !== from) move(from, to); else renderSetup();
+      }, 160);
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
+    raf = requestAnimationFrame(edge);
+    layout();
+  }
+
+  /** Picks who goes first. The list spins down like a reel and stops with them on top; the seating order stays the same. */
+  async function roll() {
+    if (sorting) return;
+    unlockAudio();
+    const n = setup.players.length;
+    const first = Math.floor(Math.random() * n);
+    const offset = (n - first) % n; // one step moves the last seat to the top
+    const steps = Math.max(2, Math.ceil(12 / n)) * n + offset;
+    sorting = true;
+    const roster = $('roster'), scroller = $('setup');
+    if (roster.getBoundingClientRect().top < scroller.getBoundingClientRect().top) roster.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      for (let k = 0; k < offset; k++) setup.players.unshift(setup.players.pop());
+    } else {
+      for (let k = 1; k <= steps; k++) {
+        const ms = 45 + 330 * (k / steps) ** 2.6; // fast, then slowing to a stop
+        setup.players.unshift(setup.players.pop());
+        renderSetup();
+        const rows = [...roster.children], h = rows[0].offsetHeight;
+        // the player who wrapped to the top also slides out of the bottom, so the reel never shows a gap
+        const ghost = rows[0].cloneNode(true);
+        ghost.setAttribute('aria-hidden', 'true');
+        ghost.querySelectorAll('[id]').forEach((e) => e.removeAttribute('id'));
+        Object.assign(ghost.style, { position: 'absolute', left: '0', right: '0', top: '100%' });
+        roster.append(ghost);
+        rows.push(ghost);
+        rows.forEach((r, j) => r.animate(
+          [{ transform: `translateY(${-h}px)`, opacity: j === 0 ? 0 : 1 }, { transform: 'translateY(0)', opacity: 1 }],
+          { duration: ms, easing: k === steps ? 'cubic-bezier(.2, 1.4, .4, 1)' : 'linear' },
+        ));
+        sound('click');
+        await sleep(ms);
+      }
+    }
+    sorting = false;
+    saveSetup();
+    renderSetup();
+    roster.firstElementChild.classList.add('first-pick');
+    $('roll-result').textContent = `${setup.players[0].name.trim() || 'Player 1'} goes first`;
+    sound('pass');
+    vibrate(30);
+  }
+
+  $('players-minus').addEventListener('click', () => { if (setup.players.length > 2) { setup.players.pop(); saveSetup(); renderSetup(); } });
+  $('players-plus').addEventListener('click', () => {
+    if (setup.players.length >= 8) return;
+    setup.players.push({ name: '', color: firstFreeColor() });
+    saveSetup();
+    renderSetup();
+  });
+  $('roll').addEventListener('click', roll);
+  $('shuffle').addEventListener('click', () => {
+    if (sorting) return;
+    const a = setup.players;
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    saveSetup();
+    renderSetup();
+  });
+  $('time-minus').addEventListener('click', () => { setup.minutes = step(setup.minutes, -1, 1, 240); changed(); });
+  $('time-plus').addEventListener('click', () => { setup.minutes = step(setup.minutes, 1, 1, 240); changed(); });
+  $('bonus-minus').addEventListener('click', () => { setup.bonus = step(setup.bonus, -1, 0, 300); changed(); });
+  $('bonus-plus').addEventListener('click', () => { setup.bonus = step(setup.bonus, 1, 0, 300); changed(); });
+  for (const id of ['sound-setup', 'sound-game']) {
+    $(id).addEventListener('click', () => { setup.sound = !setup.sound; saveSetup(); syncSound(); if (setup.sound) { unlockAudio(); sound('pass'); } });
+  }
+  $('start').addEventListener('click', newGame);
+
+  // ---------- Game state ----------
+  // The active player's `remaining` is stored as of `segStart`; while running, the live value is
+  // remaining - (now - segStart). commit() folds the running stretch into the numbers.
+
+  function newGame() {
+    unlockAudio();
+    const base = setup.minutes * MIN;
+    game = {
+      v: 1,
+      base,
+      bonus: setup.bonus * 1000,
+      players: setup.players.map((p, i) => ({
+        name: p.name.trim() || `Player ${i + 1}`, color: p.color,
+        remaining: base, used: 0, turns: 0, out: false, overtime: false,
+      })),
+      active: 0,
+      round: 1,
+      status: 'ready', // ready | running | paused | timeout | over
+      pausedFrom: null,
+      segStart: 0,
+      turnUsed: 0,
+      history: [],
+    };
+    lastBeep = null;
+    lastTap = performance.now();
+    saveGame();
+    showScreen('game');
+    renderGame(true);
+  }
+  function cleanGame(g) {
+    const ok = g && g.v === 1 && Array.isArray(g.players) && g.players.length >= 2 && g.players.every((p) => COLOR[p.color])
+      && Number.isInteger(g.active) && g.players[g.active] && ['ready', 'running', 'paused', 'timeout', 'over'].includes(g.status);
+    if (!ok) return null;
+    g.history = Array.isArray(g.history) ? g.history : [];
+    return g;
+  }
+  const saveGame = () => store.set(KEY_GAME, game);
+
+  function live(i) {
+    const p = game.players[i];
+    return i === game.active && game.status === 'running' ? p.remaining - (now() - game.segStart) : p.remaining;
+  }
+  function commit() {
+    if (game.status !== 'running') return;
+    const t = now(), d = Math.max(0, t - game.segStart), p = game.players[game.active]; // never negative if the device clock jumps back
+    p.remaining -= d;
+    p.used += d;
+    game.turnUsed += d;
+    game.segStart = t;
+  }
+  function nextIndex(from) {
+    const n = game.players.length;
+    for (let k = 1; k <= n; k++) { const j = (from + k) % n; if (!game.players[j].out) return j; }
+    return from;
+  }
+  function upcoming() {
+    const n = game.players.length, order = [];
+    for (let k = 1; k < n; k++) { const j = (game.active + k) % n; if (!game.players[j].out) order.push(j); }
+    return order;
+  }
+  const playersLeft = () => game.players.filter((p) => !p.out).length;
+
+  function tapPanel() {
+    unlockAudio();
+    const t = performance.now();
+    if (!game || t - lastTap < TAP_GAP) return;
+    lastTap = t;
+    if (game.status === 'ready') begin();
+    else if (game.status === 'running') pass();
+  }
+  function begin() {
+    game.status = 'running';
+    game.segStart = now();
+    sound('pass');
+    saveGame();
+    renderGame();
+    keepAwake(true);
+  }
+  function pass() {
+    commit();
+    game.history.push({
+      active: game.active, round: game.round, turnUsed: game.turnUsed,
+      players: game.players.map((p) => ({ remaining: p.remaining, used: p.used, turns: p.turns })),
+    });
+    if (game.history.length > 30) game.history.shift();
+    const p = game.players[game.active];
+    p.turns += 1;
+    p.remaining += game.bonus;
+    const next = nextIndex(game.active);
+    if (next <= game.active) game.round += 1;
+    game.active = next;
+    game.turnUsed = 0;
+    game.segStart = now();
+    lastBeep = null;
+    sound('pass');
+    vibrate(15);
+    saveGame();
+    renderGame(true);
+  }
+  /** Back to the previous player. The time since the pass was really theirs, so it moves to their clock. */
+  function undo() {
+    const s = game.history.pop();
+    if (!s || !['running', 'paused'].includes(game.status)) return;
+    commit();
+    const spent = Math.max(0, s.players[game.active].remaining - game.players[game.active].remaining);
+    game.players.forEach((p, i) => Object.assign(p, s.players[i]));
+    game.active = s.active;
+    game.round = s.round;
+    const p = game.players[game.active];
+    p.remaining -= spent;
+    p.used += spent;
+    game.turnUsed = s.turnUsed + spent;
+    game.segStart = now();
+    lastBeep = null;
+    sound('pass');
+    saveGame();
+    renderGame(true);
+    if (game.status === 'paused') renderPauseSheet();
+  }
+  function pause() {
+    if (!['running', 'ready'].includes(game.status)) return;
+    commit();
+    game.pausedFrom = game.status;
+    game.status = 'paused';
+    saveGame();
+    renderGame();
+    openSheet('pause');
+  }
+  function resume() {
+    if (game.status !== 'paused') return;
+    unlockAudio();
+    game.status = game.pausedFrom || 'running';
+    game.pausedFrom = null;
+    if (game.status === 'running') game.segStart = now();
+    lastTap = performance.now();
+    closeSheets();
+    saveGame();
+    renderGame();
+    keepAwake(true);
+  }
+  function timeUp() {
+    commit();
+    const p = game.players[game.active];
+    const over = -p.remaining; // the few ms past zero belong to nobody
+    p.remaining = 0;
+    p.used -= over;
+    game.turnUsed -= over;
+    game.status = 'timeout';
+    sound('timeout');
+    vibrate([300, 120, 300, 120, 600]);
+    saveGame();
+    renderGame();
+    openSheet('timeout');
+  }
+  function continueTurn() {
+    game.status = 'running';
+    game.segStart = now();
+    game.history = [];
+    lastBeep = null;
+    lastTap = performance.now();
+    closeSheets();
+    saveGame();
+    renderGame();
+  }
+  function addTime(i, ms) {
+    game.players[i].remaining += ms;
+    game.history = [];
+    saveGame();
+    renderGame();
+  }
+  function removePlayer(i) {
+    const p = game.players[i];
+    if (p.out) return;
+    if (i === game.active && game.turnUsed > 0) p.turns += 1;
+    p.out = true;
+    game.history = [];
+    if (playersLeft() <= 1) { finish(); return; }
+    if (i === game.active) {
+      const next = nextIndex(i);
+      if (next <= i) game.round += 1;
+      game.active = next;
+      game.turnUsed = 0;
+      if (game.status === 'timeout') game.status = 'ready';
+      else if (game.status === 'paused') game.pausedFrom = 'ready';
+      lastTap = performance.now();
+    }
+    saveGame();
+    renderGame(true);
+    if (game.status === 'paused') renderPauseSheet();
+    else closeSheets();
+  }
+  function finish() {
+    commit();
+    const p = game.players[game.active];
+    if (game.turnUsed > 0 && !p.out) p.turns += 1;
+    game.turnUsed = 0;
+    game.status = 'over';
+    game.history = [];
+    closeSheets();
+    keepAwake(false);
+    saveGame();
+    renderOver();
+    showScreen('over');
+  }
+
+  // ---------- Game view ----------
+
+  function renderGame(swap = false) {
+    const p = game.players[game.active], c = COLOR[p.color];
+    const panel = $('panel');
+    panel.style.setProperty('--p', c.bg);
+    panel.style.setProperty('--p-dim', c.dim);
+    panel.style.setProperty('--p-ink', c.ink);
+    if (swap) {
+      panel.classList.remove('swap');
+      void panel.offsetWidth;
+      panel.classList.add('swap');
+      clearTimeout(swapTimer);
+      swapTimer = setTimeout(() => panel.classList.remove('swap'), 600);
+    }
+    $('who').textContent = p.name;
+    $('round').textContent = `Round ${game.round}`;
+    $('state-tag').textContent = p.overtime ? 'Overtime' : '';
+    $('state-tag').hidden = !p.overtime;
+    const hint = {
+      ready: `Tap to start ${p.name}’s clock`,
+      running: 'Tap when your turn is done',
+      paused: 'Paused',
+      timeout: 'Out of time',
+    }[game.status] || '';
+    $('hint').textContent = hint;
+    panel.setAttribute('aria-label', `${p.name}’s turn. ${hint}`);
+
+    const rows = upcoming().map((j, k) => queueRow(j, k === 0 ? 'Next' : ''));
+    game.players.forEach((q, j) => { if (q.out) rows.push(queueRow(j, 'Out')); });
+    $('queue').replaceChildren(...rows);
+    $('queue').hidden = rows.length === 0;
+    $('queue').classList.toggle('dense', rows.length > 4);
+
+    const last = game.history[game.history.length - 1];
+    const canUndo = !!last && ['running', 'paused'].includes(game.status);
+    $('undo').disabled = !canUndo;
+    $('undo-label').textContent = canUndo ? `Back to ${game.players[last.active].name}` : 'Undo';
+    updateClock();
+  }
+
+  function queueRow(j, note) {
+    const p = game.players[j];
+    const li = tint(el('li', p.out ? 'q out' : 'q'), COLOR[p.color]);
+    const name = el('span', 'q-name');
+    name.append(el('b', '', p.name));
+    if (note) name.append(el('small', '', note));
+    const bar = el('span', 'q-bar');
+    const fill = el('i');
+    fill.style.transform = `scaleX(${clamp(p.remaining / game.base, 0, 1).toFixed(4)})`;
+    bar.append(fill);
+    li.append(el('span', 'q-dot'), name, el('span', 'q-time', p.out ? '' : fmt(p.remaining)), bar);
+    return li;
+  }
+
+  function updateClock() {
+    if (!game || shown !== 'game') return;
+    const p = game.players[game.active];
+    const r = live(game.active);
+    const text = fmt(r);
+    const clock = $('clock');
+    if (clock.textContent !== text) {
+      clock.textContent = text;
+      clock.classList.toggle('long', text.split(':').length === 3);
+    }
+    const frac = clamp(r / game.base, 0, 1);
+    $('fill').style.transform = `translateY(${((1 - frac) * 100).toFixed(3)}%)`;
+    $('fill').classList.toggle('full', frac > 0.998);
+    const running = game.status === 'running';
+    const ready = game.status === 'ready' || (game.status === 'paused' && game.pausedFrom === 'ready');
+    const turn = ready
+      ? (game.players.some((q) => q.used > 0) ? 'Up next' : 'Goes first')
+      : `This turn ${fmtUp(game.turnUsed + (running ? now() - game.segStart : 0))}`;
+    const t = $('turn');
+    if (t.textContent !== turn) t.textContent = turn;
+    $('panel').classList.toggle('low', running && !p.overtime && r <= LOW);
+  }
+
+  function tick() {
+    if (game && game.status === 'running') {
+      const p = game.players[game.active];
+      const r = live(game.active);
+      if (!p.overtime && r <= 0) { timeUp(); return; }
+      if (!p.overtime && r <= LOW) {
+        const s = Math.ceil(r / 1000);
+        if (s !== lastBeep) { lastBeep = s; if (document.visibilityState === 'visible') sound('tick'); }
+      }
+    }
+    updateClock();
+  }
+
+  // ---------- Sheets ----------
+
+  function openSheet(name) {
+    closeSheets();
+    if (name === 'pause') renderPauseSheet();
+    if (name === 'timeout') renderTimeoutSheet();
+    const wrap = $(`${name}-sheet`);
+    wrap.hidden = false;
+    const first = name === 'pause' ? $('resume') : $('to-remove');
+    setTimeout(() => first.focus({ preventScroll: true }), 30);
+  }
+  function closeSheets() {
+    $('pause-sheet').hidden = true;
+    $('timeout-sheet').hidden = true;
+  }
+  const sheetOpen = () => !$('pause-sheet').hidden || !$('timeout-sheet').hidden;
+
+  function renderPauseSheet() {
+    $('pause-round').textContent = `Round ${game.round}`;
+    const p = game.players[game.active];
+    $('resume-sub').textContent = game.pausedFrom === 'ready' ? `${p.name} is up next` : `${p.name}’s clock carries on`;
+    $('live').replaceChildren(...game.players.map((q, i) => {
+      const li = tint(el('li', q.out ? 'out' : ''), COLOR[q.color]);
+      const nm = el('span', 'nm');
+      const status = q.out ? 'Out of the game' : fmt(q.remaining) + (q.overtime ? ' overtime' : '') + (i === game.active ? ', their turn' : '');
+      nm.append(el('b', '', q.name), el('span', '', status));
+      li.append(el('span', 'q-dot'), nm);
+      if (!q.out) {
+        const add = el('button', 'mini', '+1 min');
+        add.type = 'button';
+        add.setAttribute('aria-label', `Give ${q.name} one more minute`);
+        add.addEventListener('click', () => { addTime(i, MIN); renderPauseSheet(); });
+        const rm = el('button', 'mini danger', 'Remove');
+        rm.type = 'button';
+        rm.setAttribute('aria-label', `Remove ${q.name} from the game`);
+        let armed = 0;
+        rm.addEventListener('click', () => {
+          if (!armed) {
+            rm.textContent = 'Sure?';
+            rm.classList.add('confirm');
+            armed = setTimeout(() => { armed = 0; rm.textContent = 'Remove'; rm.classList.remove('confirm'); }, 3000);
+            return;
+          }
+          clearTimeout(armed);
+          removePlayer(i);
+        });
+        li.append(add, rm);
+      }
+      return li;
+    }));
+    syncSound();
+    disarmEnd();
+  }
+  function disarmEnd() {
+    clearTimeout(endArmed);
+    endArmed = 0;
+    $('end').textContent = 'End game';
+    $('end').classList.remove('confirm');
+  }
+
+  function renderTimeoutSheet() {
+    const p = game.players[game.active];
+    tint($('to-alarm'), COLOR[p.color]);
+    $('to-name').textContent = p.name;
+    $('to-title').textContent = `${p.name} is out of time`;
+    $('to-remove').textContent = playersLeft() <= 2 ? `Remove ${p.name} and end the game` : `Remove ${p.name}`;
+    $('to-overtime').textContent = `Let ${p.name} keep playing in overtime`;
+  }
+
+  $('panel').addEventListener('pointerdown', (e) => { if (e.button === 0) tapPanel(); });
+  $('undo').addEventListener('click', undo);
+  $('pause').addEventListener('click', pause);
+  $('resume').addEventListener('click', resume);
+  $('end').addEventListener('click', () => {
+    if (!endArmed) {
+      $('end').textContent = 'Tap again to end the game';
+      $('end').classList.add('confirm');
+      endArmed = setTimeout(disarmEnd, 3000);
+      return;
+    }
+    disarmEnd();
+    finish();
+  });
+  $('pause-sheet').addEventListener('click', (e) => { if (e.target === e.currentTarget) resume(); });
+  $('to-remove').addEventListener('click', () => removePlayer(game.active));
+  $('to-add1').addEventListener('click', () => { addTime(game.active, MIN); continueTurn(); });
+  $('to-add5').addEventListener('click', () => { addTime(game.active, 5 * MIN); continueTurn(); });
+  $('to-overtime').addEventListener('click', () => { game.players[game.active].overtime = true; continueTurn(); });
+
+  document.addEventListener('keydown', (e) => {
+    if (shown !== 'game') return;
+    if (!$('pause-sheet').hidden && e.key === 'Escape') { resume(); return; }
+    if (sheetOpen()) return;
+    const onPanel = e.target === document.body || e.target === $('panel');
+    if (onPanel && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); if (!e.repeat) tapPanel(); }
+  });
+
+  // ---------- Game over ----------
+
+  function renderOver() {
+    const left = game.players.filter((p) => !p.out);
+    const lead = $('over-lead');
+    lead.hidden = !(left.length === 1 && left.length < game.players.length);
+    lead.textContent = lead.hidden ? '' : `${left[0].name} is the last player with time left.`;
+    const total = game.players.reduce((s, p) => s + p.used, 0);
+    $('over-meta').textContent = `${game.round} ${game.round === 1 ? 'round' : 'rounds'}, ${fmtSpan(total)} on the clocks`;
+    const avg = (p) => (p.turns ? p.used / p.turns : 0);
+    const timed = game.players.filter((p) => p.turns > 0);
+    const slowest = timed.length > 1 ? timed.reduce((a, b) => (avg(b) > avg(a) ? b : a)) : null;
+    $('stats').replaceChildren(...game.players.map((p) => {
+      const tr = el('tr');
+      const who = el('td');
+      const cell = el('span', 'who-cell');
+      const dot = tint(el('span', 'q-dot'), COLOR[p.color]);
+      cell.append(dot, el('b', '', p.name));
+      if (p.out) cell.append(el('small', '', 'Out'));
+      else if (p === slowest) cell.append(el('small', '', 'Slowest'));
+      who.append(cell);
+      tr.append(who, el('td', '', fmtUp(p.used)), el('td', '', String(p.turns)), el('td', '', p.turns ? fmtUp(avg(p)) : '–'));
+      return tr;
+    }));
+    $('over-pips').replaceChildren(...game.players.map((p) => tint(el('i'), COLOR[p.color])));
+    $('again-sub').textContent = `Same ${game.players.length} players, ${fmtMinutes(Math.round(game.base / MIN))} each`;
+  }
+  $('again').addEventListener('click', newGame); // setup can't change mid-game, so it still holds this roster
+  $('new-setup').addEventListener('click', () => {
+    game = null;
+    saveGame();
+    renderSetup();
+    showScreen('setup');
+  });
+
+  // ---------- Screens, wake lock, sound ----------
+
+  function showScreen(name) {
+    shown = name;
+    for (const id of ['setup', 'game', 'over']) $(id).hidden = id !== name;
+    keepAwake(name === 'game');
+    if (name === 'game') updateClock();
+  }
+
+  let wakeLock = null, wakeWanted = false, wakeWarned = false;
+  async function keepAwake(on) {
+    wakeWanted = on;
+    if (!on) {
+      const lock = wakeLock;
+      wakeLock = null;
+      if (lock) lock.release().catch(() => {});
+      return;
+    }
+    if (wakeLock || document.visibilityState !== 'visible') return;
+    try {
+      const lock = await navigator.wakeLock.request('screen');
+      if (!wakeWanted) { lock.release().catch(() => {}); return; }
+      wakeLock = lock;
+      lock.addEventListener('release', () => { if (wakeLock === lock) wakeLock = null; });
+    } catch {
+      if (!wakeWarned) {
+        wakeWarned = true;
+        toast('This browser can’t keep the screen on. If your phone locks mid-game, turn off Auto-Lock while you play.');
+      }
+    }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (wakeWanted) keepAwake(true);
+    tick();
+  });
+
+  let toastTimer = 0;
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.hidden = true; }, 7000);
+  }
+  $('toast').addEventListener('click', () => { $('toast').hidden = true; });
+
+  let actx = null;
+  function unlockAudio() {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') actx.resume();
+    } catch {}
+  }
+  function beep(freq, dur, when = 0, vol = 0.15, type = 'sine') {
+    const t = actx.currentTime + when;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(actx.destination);
+    o.start(t);
+    o.stop(t + dur + 0.03);
+  }
+  function sound(kind) {
+    if (!setup.sound || !actx || actx.state !== 'running') return;
+    try {
+      if (kind === 'pass') { beep(520, 0.09, 0, 0.2, 'triangle'); beep(780, 0.14, 0.05, 0.14, 'triangle'); }
+      if (kind === 'tick') beep(1040, 0.05, 0, 0.09);
+      if (kind === 'click') beep(1500, 0.03, 0, 0.07, 'triangle');
+      if (kind === 'timeout') { [0, 0.22, 0.44].forEach((w) => beep(880, 0.16, w, 0.3, 'triangle')); beep(660, 0.6, 0.7, 0.32, 'triangle'); }
+    } catch {}
+  }
+  function vibrate(pattern) { try { navigator.vibrate && navigator.vibrate(pattern); } catch {} }
+  for (const type of ['click', 'touchend', 'keydown']) document.addEventListener(type, unlockAudio, { passive: true });
+
+  // ---------- Boot ----------
+
+  function start(data) {
+    setup = cleanSetup(data && data.setup) || cleanSetup(store.get(KEY_SETUP)) || defaultSetup();
+    game = cleanGame(data && data.game ? data.game : store.get(KEY_GAME));
+    renderSetup();
+    if (!game) showScreen('setup');
+    else if (game.status === 'over') { renderOver(); showScreen('over'); }
+    else {
+      // reopened mid-game: keep the time that passed, but stop the clock until someone resumes
+      if (game.status === 'running') { commit(); game.pausedFrom = 'running'; game.status = 'paused'; saveGame(); }
+      showScreen('game');
+      renderGame();
+      if (game.status === 'paused') openSheet('pause');
+      if (game.status === 'timeout') openSheet('timeout');
+    }
+    setInterval(tick, 100);
+  }
+
+  window.claude?.hot?.snapshot?.(() => ({ setup, game }));
+  window.tableTimer = {
+    get game() { return game; },
+    get setup() { return setup; },
+    advance(ms) { offset += ms; tick(); },
+  };
+  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
+</body></html>
